@@ -564,6 +564,21 @@ int main() {
     std::printf("FAIL table.json not found next to the test (run it from the build directory)\n");
     return 1;
   }
+  {
+    auto deviceType = reinterpret_cast<uint32_t (*)(void)>(GetProcAddress(module, "XSystemGetDeviceType"));
+    Check(deviceType != nullptr, "XSystemGetDeviceType is exported by the stand-in");
+    if (deviceType) Check(deviceType() == 1, "XSystemGetDeviceType returns Pc (the stand-in runs on a PC)");
+    struct RuntimeInfo { uint16_t runtimeVersion[4], availableVersion[4]; };
+    auto runtimeInfo = reinterpret_cast<RuntimeInfo (*)(void)>(GetProcAddress(module, "XSystemGetRuntimeInfo"));
+    Check(runtimeInfo != nullptr, "XSystemGetRuntimeInfo is exported by the stand-in");
+    if (runtimeInfo) {
+      const RuntimeInfo info = runtimeInfo();
+      const uint16_t* words = info.runtimeVersion;
+      bool zeros = true;
+      for (unsigned k = 0; k < 8; k++) zeros = zeros && words[k] == 0;
+      Check(zeros, "XSystemGetRuntimeInfo reports the documented zeroed versions (no gaming runtime service)");
+    }
+  }
   g_threading = Get(kThreading);
   CheckSystem();
   CheckLauncher();

@@ -115,10 +115,12 @@ class GeneratedStubTest(unittest.TestCase):
                       '{0x99, 0x99, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa}}, 8, 9},', self.source)
 
     def test_the_definition_file_exports_the_entry_points(self):
-        self.assertEqual(self.defs.splitlines(),
+        lines = self.defs.splitlines()
+        self.assertEqual(lines[:8],
                          ["LIBRARY xgameruntime", "EXPORTS", "    QueryApiImpl", "    InitializeApiImpl",
                           "    InitializeApiImplEx", "    InitializeApiImplEx2", "    UninitializeApiImpl",
                           "    XErrorReport"])
+        self.assertEqual(len(lines), len(set(lines)))
 
     def test_a_missing_output_directory_is_created(self):
         self.assertTrue((pathlib.Path(self.directory.name) / "gen").is_dir())

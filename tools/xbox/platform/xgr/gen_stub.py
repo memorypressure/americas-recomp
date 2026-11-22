@@ -3,12 +3,15 @@
 usage: python -I gen_stub.py table.json out_dir          then: cl /nologo /LD /O2 /EHsc /std:c++17 out_dir\\xgr_stub.cpp /Fe:xgameruntime.dll /link /DEF:out_dir\\xgameruntime.def
 
 The DLL exports the six entry points the GDK static library resolves (QueryApiImpl, InitializeApiImpl, InitializeApiImplEx, InitializeApiImplEx2,
-UninitializeApiImpl, XErrorReport). QueryApiImpl hands out one object per known interface id; every method of it logs its first call and returns a
+UninitializeApiImpl, XErrorReport), plus XSystemGetDeviceType and XSystemGetRuntimeInfo: documented plain functions no interface of the IDL maps,
+answered directly (in this generated stub; the runtime build answers them in runtime/impl_system.cpp). QueryApiImpl hands out one object per known interface id; every method of it logs its first call and returns a
 failure (E_NOTIMPL for HRESULT methods, 0 for the rest, the hidden pointer for struct returns). Environment: XGR_LOG=<file>.
 It exists to learn which runtime interfaces and methods a game uses, in which order, before any of them are implemented:
 an interface id missing from the table is logged and refused (E_NOINTERFACE), which shows where the console build differs from the PC one.
 """
 import json, os, sys
+
+PLAIN_EXPORTS = ["XSystemGetDeviceType", "XSystemGetRuntimeInfo"]
 
 SCALAR = {"void", "BOOLEAN", "bool", "INT32", "UINT32", "UINT64", "INT64", "SIZE_T", "size_t", "int", "UINT8", "UINT16", "float", "double"}
 
@@ -133,9 +136,18 @@ extern "C" void XErrorReport(HRESULT hr, const char* m) {
   gtx::xgr::system::report_error(hr, m);
 #endif
 }
+
+// Direct exports the interface table does not map (no interface slot is known for either). With the
+// runtime linked, runtime/impl_system.cpp defines them; the logging stub answers the same documented
+// values here so the export table is complete in either build (see the .def).
+#ifndef XGR_WITH_RUNTIME
+extern "C" uint32_t XSystemGetDeviceType(void) { Log("XSystemGetDeviceType"); return 1; }   // XSystemDeviceType::Pc
+struct StubRuntimeInfo { uint16_t runtimeVersion[4], availableVersion[4]; };                 // XSystemRuntimeInfo
+extern "C" StubRuntimeInfo XSystemGetRuntimeInfo(void) { Log("XSystemGetRuntimeInfo"); StubRuntimeInfo z{}; return z; }
+#endif
 ''')
     open(os.path.join(out, "xgr_stub.cpp"), "w").write("\n".join(L).replace("#include <utility>", "#include <utility>\n#include <cstdarg>\n#include <intrin.h>"))
-    open(os.path.join(out, "xgameruntime.def"), "w").write("LIBRARY xgameruntime\nEXPORTS\n    QueryApiImpl\n    InitializeApiImpl\n    InitializeApiImplEx\n    InitializeApiImplEx2\n    UninitializeApiImpl\n    XErrorReport\n")
+    open(os.path.join(out, "xgameruntime.def"), "w").write("LIBRARY xgameruntime\nEXPORTS\n    QueryApiImpl\n    InitializeApiImpl\n    InitializeApiImplEx\n    InitializeApiImplEx2\n    UninitializeApiImpl\n    XErrorReport\n" + "".join("    %s\n" % n for n in PLAIN_EXPORTS))
     print("%d interfaces, %d vtable slots -> %s" % (len(t), len(slots), out))
 
 

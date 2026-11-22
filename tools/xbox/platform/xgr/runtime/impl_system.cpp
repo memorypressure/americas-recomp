@@ -613,3 +613,15 @@ const Override* overrides(size_t* count) {
 }
 
 }  // namespace gtx::xgr::system
+
+struct XgrSystemRuntimeInfo {
+  uint16_t runtimeVersion[4];
+  uint16_t availableVersion[4];
+};
+
+extern "C" uint32_t XSystemGetDeviceType(void) { return 1; }
+
+extern "C" XgrSystemRuntimeInfo XSystemGetRuntimeInfo(void) {
+  XgrSystemRuntimeInfo info{};
+  return info;
+}
